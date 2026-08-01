@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Board — track anything</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #12141c;
+    --panel: #1b1e29;
+    --panel-edge: #2a2e3c;
+    --amber: #ffb400;
+    --amber-dim: #8a6300;
+    --paper: #eeeae0;
+    --paper-dim: #9a9788;
+    --ok: #52d17a;
+    --warn: #ff6b5e;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    background: var(--ink);
+    background-image:
+      radial-gradient(circle at 20% -10%, rgba(255,180,0,0.06), transparent 40%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 3px);
+    color: var(--paper);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 20px 80px;
+  }
+
+  header {
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 36px;
+  }
+
+  .brand {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.18em;
+    color: var(--amber);
+    text-transform: uppercase;
+  }
+
+  .brand span { color: var(--paper-dim); font-weight: 400; }
+
+  .tagline {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--paper-dim);
+    letter-spacing: 0.04em;
+  }
+
+  main { width: 100%; max-width: 720px; }
+
+  .hero {
+    text-align: left;
+    margin-bottom: 28px;
+  }
+
+  .hero h1 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: clamp(28px, 5vw, 42px);
+    line-height: 1.15;
+    margin: 0 0 10px;
+    color: var(--paper);
+  }
+
+  .hero p {
+    font-size: 15px;
+    color: var(--paper-dim);
+    max-width: 46ch;
+    margin: 0;
+  }
+
+  form.search {
+    display: flex;
+    gap: 10px;
+    margin: 32px 0 8px;
+  }
+
+  .search input {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 4px;
+    padding: 16px 18px;
+    font-family: var(--mono);
+    font-size: 17px;
+    letter-spacing: 0.06em;
+    color: var(--paper);
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+
+  .search input::placeholder { color: #565a68; }
+  .search input:focus { border-color: var(--amber); }
+
+  .search button {
+    background: var(--amber);
+    color: #1a1400;
+    border: none;
+    border-radius: 4px;
+    padding: 0 26px;
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: filter 0.15s ease, transform 0.1s ease;
+  }
+
+  .search button:hover { filter: brightness(1.08); }
+  .search button:active { transform: translateY(1px); }
+  .search button:disabled { opacity: 0.5; cursor: default; }
+
+  .hint {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: #555a6a;
+    margin-bottom: 24px;
+  }
+  .hint button {
+    background: none; border: none; color: var(--amber-dim);
+    font-family: var(--mono); font-size: 11.5px; text-decoration: underline;
+    cursor: pointer; padding: 0;
+  }
+
+  /* ---- Board panel ---- */
+
+  .board {
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 6px;
+    padding: 28px;
+    display: none;
+  }
+
+  .board.visible { display: block; animation: rise 0.25s ease; }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .board-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px dashed var(--panel-edge);
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+  }
+
+  .board-number {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--paper-dim);
+    letter-spacing: 0.06em;
+  }
+
+  .board-carrier {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--paper);
+    margin-top: 4px;
+  }
+
+  .status-badge {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .status-badge.transit { background: rgba(255,180,0,0.14); color: var(--amber); }
+  .status-badge.delivered { background: rgba(82,209,122,0.14); color: var(--ok); }
+  .status-badge.error { background: rgba(255,107,94,0.14); color: var(--warn); }
+  .status-badge.unknown { background: rgba(255,255,255,0.06); color: var(--paper-dim); }
+
+  /* Split-flap character row for the status line */
+  .flap-row {
+    display: flex;
+    gap: 3px;
+    margin: 4px 0 2px;
+    flex-wrap: wrap;
+  }
+  .flap {
+    background: #0e0f16;
+    border: 1px solid #2a2e3c;
+    border-radius: 2px;
+    width: 20px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--amber);
+    position: relative;
+    overflow: hidden;
+  }
+  .flap::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; top: 50%;
+    height: 1px;
+    background: rgba(0,0,0,0.5);
+  }
+  .flap.flip { animation: flip 0.35s ease; }
+  @keyframes flip {
+    0% { transform: rotateX(90deg); opacity: 0.3; }
+    60% { transform: rotateX(0deg); opacity: 1; }
+    100% { transform: rotateX(0deg); }
+  }
+
+  .timeline {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0 0;
+    border-left: 2px solid var(--panel-edge);
+  }
+
+  .timeline li {
+    position: relative;
+    padding: 0 0 22px 22px;
+  }
+  .timeline li:last-child { padding-bottom: 0; }
+
+  .timeline li::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    top: 3px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 2px solid var(--amber-dim);
+  }
+  .timeline li:first-child::before {
+    border-color: var(--amber);
+    box-shadow: 0 0 0 3px rgba(255,180,0,0.15);
+  }
+
+  .ev-time {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--paper-dim);
+    letter-spacing: 0.03em;
+  }
+  .ev-desc { font-size: 14.5px; color: var(--paper); margin: 3px 0 2px; }
+  .ev-loc { font-family: var(--mono); font-size: 12px; color: #6a6e7e; }
+
+  .empty-state {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--paper-dim);
+    line-height: 1.7;
+    padding: 6px 0 2px;
+  }
+
+  .error-box {
+    display: none;
+    background: rgba(255,107,94,0.08);
+    border: 1px solid rgba(255,107,94,0.3);
+    color: #ffb1a8;
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 14px 16px;
+    border-radius: 4px;
+    margin-top: 16px;
+  }
+  .error-box.visible { display: block; }
+
+  .loading {
+    display: none;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--paper-dim);
+    margin-top: 16px;
+    letter-spacing: 0.04em;
+  }
+  .loading.visible { display: flex; align-items: center; gap: 8px; }
+  .loading .dot { animation: blink 1s infinite steps(1); color: var(--amber); }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  footer {
+    margin-top: 48px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #4a4e5c;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">BOARD <span>/ tracking</span></div>
+  <div class="tagline" id="clock"></div>
+</header>
+
+<main>
+  <div class="hero">
+    <h1>Where's your package?</h1>
+    <p>Drop in any tracking number. We check USPS, UPS, FedEx, OnTrac, and thousands more automatically — no need to say which carrier.</p>
+  </div>
+
+  <form class="search" id="searchForm" autocomplete="off">
+    <input type="text" id="trackingInput" placeholder="Enter tracking number" maxlength="40" required>
+    <button type="submit" id="searchBtn">Track</button>
+  </form>
+  <div class="hint">Demo mode active until an API key is configured. Try <button type="button" data-demo="DEMO123">DEMO123</button> or <button type="button" data-demo="DEMO404">DEMO404</button>.</div>
+
+  <div class="loading" id="loading"><span class="dot">●</span> <span id="loadingText">checking carriers…</span></div>
+  <div class="error-box" id="errorBox"></div>
+
+  <section class="board" id="board">
+    <div class="board-top">
+      <div>
+        <div class="board-number" id="boardNumber"></div>
+        <div class="board-carrier" id="boardCarrier"></div>
+      </div>
+      <div class="status-badge" id="statusBadge"></div>
+    </div>
+    <div class="flap-row" id="flapRow"></div>
+    <ul class="timeline" id="timeline"></ul>
+  </section>
+</main>
+
+<footer>Data pulled live from carrier networks · results cached 20 minutes</footer>
+
+<script>
+const form = document.getElementById('searchForm');
+const input = document.getElementById('trackingInput');
+const btn = document.getElementById('searchBtn');
+const loading = document.getElementById('loading');
+const loadingText = document.getElementById('loadingText');
+const errorBox = document.getElementById('errorBox');
+const board = document.getElementById('board');
+const boardNumber = document.getElementById('boardNumber');
+const boardCarrier = document.getElementById('boardCarrier');
+const statusBadge = document.getElementById('statusBadge');
+const flapRow = document.getElementById('flapRow');
+const timeline = document.getElementById('timeline');
+
+function tickClock() {
+  const el = document.getElementById('clock');
+  const now = new Date();
+  el.textContent = now.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+}
+setInterval(tickClock, 1000);
+tickClock();
+
+document.querySelectorAll('[data-demo]').forEach(b => {
+  b.addEventListener('click', () => {
+    input.value = b.dataset.demo;
+    form.requestSubmit();
+  });
+});
+
+function statusClass(status) {
+  const s = (status || '').toLowerCase();
+  if (s.includes('deliver')) return 'delivered';
+  if (s.includes('transit') || s.includes('pick') || s.includes('out')) return 'transit';
+  if (s === 'not_found' || s.includes('exception') || s.includes('fail')) return 'error';
+  return 'unknown';
+}
+
+function renderFlaps(text) {
+  flapRow.innerHTML = '';
+  const chars = (text || 'UNKNOWN').toUpperCase().split('');
+  chars.forEach((ch, i) => {
+    const div = document.createElement('div');
+    div.className = 'flap';
+    div.textContent = ch === ' ' ? '' : ch;
+    flapRow.appendChild(div);
+    setTimeout(() => div.classList.add('flip'), i * 40);
+  });
+}
+
+function renderTimeline(events) {
+  timeline.innerHTML = '';
+  if (!events || events.length === 0) {
+    const li = document.createElement('li');
+    li.innerHTML = '<div class="empty-state">No scan events yet — check back once the carrier picks it up.</div>';
+    timeline.appendChild(li);
+    return;
+  }
+  events.forEach(ev => {
+    const li = document.createElement('li');
+    const time = ev.time ? new Date(ev.time).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    li.innerHTML = `
+      <div class="ev-time">${time}${ev.provider ? ' · ' + ev.provider : ''}</div>
+      <div class="ev-desc">${ev.description || ''}</div>
+      <div class="ev-loc">${ev.location || ''}</div>
+    `;
+    timeline.appendChild(li);
+  });
+}
+
+async function trackNumber(number) {
+  errorBox.classList.remove('visible');
+  board.classList.remove('visible');
+  loading.classList.add('visible');
+  loadingText.textContent = 'checking carriers…';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ number })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Something went wrong.');
+    }
+
+    boardNumber.textContent = data.number;
+    boardCarrier.textContent = data.found ? (data.carrier || 'Carrier') : 'Not found';
+
+    const cls = statusClass(data.status);
+    statusBadge.className = 'status-badge ' + cls;
+    statusBadge.textContent = (data.status || 'unknown').replace(/_/g, ' ');
+
+    renderFlaps(data.found ? (data.status || 'unknown').replace(/_/g, ' ') : 'not found');
+    renderTimeline(data.events);
+
+    if (!data.found) {
+      const li = document.createElement('li');
+      li.innerHTML = `<div class="empty-state">${data.message || 'No data found for this number yet.'}</div>`;
+      timeline.innerHTML = '';
+      timeline.appendChild(li);
+    }
+
+    board.classList.add('visible');
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  } finally {
+    loading.classList.remove('visible');
+    btn.disabled = false;
+  }
+}
+
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const number = input.value.trim();
+  if (!number) return;
+  trackNumber(number);
+});
+</script>
+
+</body>
+</html>
